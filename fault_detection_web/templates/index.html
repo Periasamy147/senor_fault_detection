@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fault Detection Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Fault Detection Dashboard</h1>
+    </header>
+    <div class="container">
+        <section class="dashboard">
+            <!-- Graphs on the Left -->
+            <div class="card temp-card">
+                <h3>Temperature Over Time</h3>
+                <canvas id="tempChart"></canvas>
+            </div>
+            <div class="card prob-card">
+                <h3>Fault Probabilities</h3>
+                <canvas id="probChart"></canvas>
+            </div>
+
+            <!-- Info Cards on the Right -->
+            <div class="info-container">
+                <div class="card info-card">
+                    <h3>Current Data</h3>
+                    <p><strong>Temperature:</strong> <span id="currentTemp">N/A</span> °C</p>
+                    <p><strong>Timestamp:</strong> <span id="currentTime">N/A</span></p>
+                    <p><strong>Fault Status:</strong> <span id="currentFault">N/A</span></p>
+                </div>
+                <div class="card stats-card">
+                    <h3>Real-Time Statistics</h3>
+                    <p><strong>Total Readings:</strong> <span id="totalReadings">0</span></p>
+                    <p><strong>Fault Count:</strong> <span id="faultCount">0</span></p>
+                    <p><strong>Normal Count:</strong> <span id="normalCount">0</span></p>
+                    <p><strong>Avg Temperature:</strong> <span id="avgTemp">0</span> °C</p>
+                    <p><strong>Fault Frequency:</strong> <span id="faultFreq">0</span>%</p>
+                    <p><strong>Max Probability:</strong> <span id="maxProb">0</span>% (<span id="maxFault">N/A</span>)</p>
+                </div>
+            </div>
+        </section>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

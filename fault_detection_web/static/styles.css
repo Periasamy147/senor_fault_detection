@@ -1,0 +1,99 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #f4f7fc;
+    color: #333;
+    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+header {
+    background-color: #004aad;
+    color: #ffffff;
+    text-align: center;
+    padding: 12px 0; /* Reduced padding */
+    font-size: 1.5em; /* Reduced title size */
+    font-weight: bold;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+    width: 100%;
+}
+
+.container {
+    width: 90vw;
+    max-width: 1400px;
+    margin: 10px auto;
+    padding: 10px; /* Reduced container padding */
+}
+
+.dashboard {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr; /* Adjusted grid proportion */
+    grid-template-rows: auto auto;
+    grid-gap: 15px; /* Reduced gap */
+    width: 100%;
+}
+
+/* Left Side: Graphs */
+.temp-card, .prob-card {
+    width: 85%; /* Reduced graph width */
+    height: 320px; /* Adjusted graph height */
+    margin: 0 auto;
+}
+
+/* Right Side: Info Cards */
+.info-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    grid-column: 2;
+    grid-row: span 2;
+}
+
+/* Card Styling */
+.card {
+    background-color: white;
+    border-radius: 10px;
+    padding: 15px; /* Reduced padding */
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease-in-out;
+    width: 100%;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+}
+
+.card h3 {
+    color: #004aad;
+    text-align: center;
+    font-size: 1.1em; /* Reduced title size */
+    margin-bottom: 10px;
+}
+
+canvas {
+    width: 100% !important;
+    height: 250px !important; /* Reduced graph height */
+}
+
+/* Info and Stats Cards */
+.info-card, .stats-card {
+    flex: 1;
+    text-align: center;
+}
+
+.info-card p, .stats-card p {
+    font-size: 1em; /* Adjusted text size */
+    margin: 6px 0;
+}
+
+.info-card p strong, .stats-card p strong {
+    color: #004aad;
+    font-weight: 600;
+}
