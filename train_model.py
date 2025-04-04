@@ -105,7 +105,7 @@ history = model.fit(
 # Save model and history
 model.save("bilstm_fault_detection.keras")
 np.save("training_history.npy", history.history)
-print("\n✅ Model training complete! Saved as corrected_bilstm_fault_detection.keras")
+print("\n✅ Model training complete! Saved as bilstm_fault_detection.keras")
 print(f"📊 Final Training Accuracy: {history.history['accuracy'][-1]:.5f}")
 print(f"📊 Final Validation Accuracy: {history.history['val_accuracy'][-1]:.5f}")
 print(f"📉 Final Training Loss: {history.history['loss'][-1]:.5f}")

@@ -15,7 +15,7 @@ dynamodb = boto3.resource('dynamodb', region_name='ap-south-1')
 table_name = 'TemperatureReadings'
 table = dynamodb.Table(table_name)
 
-# Load original trained model and preprocessing objects (for 10,000-sample dataset)
+# Load original trained model and preprocessing objects (for 50,000-sample dataset)
 try:
     model = load_model(
         'bilstm_fault_detection.keras',  # Original model
