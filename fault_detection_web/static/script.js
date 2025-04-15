@@ -129,5 +129,5 @@ function updateDashboard() {
 }
 
 // Fetch data every 5 seconds (changed from 10 seconds)
-setInterval(updateDashboard, 2000);
+setInterval(updateDashboard, 5000);
 updateDashboard(); // Initial call

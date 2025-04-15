@@ -1,140 +1,97 @@
-// Constants
-const MIN_TEMP = 40;  // Matches dataset generation
-const MAX_TEMP = 90;
-const NORMAL_COUNT = 5;  // 5 normal readings
-const FAULT_REPEAT_COUNT = 8;  // 8 readings per fault
-const FAULT_TYPES = [
-    "stuck_at", "drift", "noise", "out_of_range", 
-    "intermittent", "calibration", "failure", "slow_drift", "spike"
-];
+let faultTypes = ["stuck-at", "drift", "noise", "out-of-range", "intermittent", "calibration", "complete failure"];
+let state = flow.get("state") || {
+    mode: "normal",
+    normalCount: 0,
+    faultCount: 0,
+    faultIndex: 0,
+    faultType: "",
+    stuckValue: null,
+    driftValue: null
+};
 
-// Fault tracking variables
-let totalReadings = flow.get("totalReadings") || 0;
-let phaseCounter = flow.get("phaseCounter") || 0;
-let phaseType = flow.get("phaseType") || "normal";
-let faultIndex = flow.get("faultIndex") || 0;
-let stuckTemperature = flow.get("stuckTemperature") || null;
-let driftTemperature = flow.get("driftTemperature") || null;
-let intermittentTemperature = flow.get("intermittentTemperature") || null;
+let temperature;
+let fault = "none";
 
-// Generate normal sensor data
-function generateNormalSensorData() {
-    let temperature = (Math.random() * (MAX_TEMP - MIN_TEMP) + MIN_TEMP).toFixed(2);
-    return {
-        sensor_id: "DHT22-1",
-        temperature: parseFloat(temperature),
-        timestamp: new Date().toISOString(),
-        fault_type: "normal"
-    };
-}
+// Generate normal data
+if (state.mode === "normal") {
+    temperature = parseFloat((Math.random() * (40 - 22) + 22).toFixed(2));
+    state.normalCount++;
 
-// Generate fault data
-function generateFaultData(faultType, step) {
-    let temperature;
-    switch (faultType) {
-        case "stuck_at":
-            if (stuckTemperature === null) {
-                stuckTemperature = (Math.random() * (MAX_TEMP - MIN_TEMP) + MIN_TEMP).toFixed(2);
-                flow.set("stuckTemperature", stuckTemperature);
+    // After 10–12 normal readings, switch to fault mode
+    if (state.normalCount >= state.normalTargetCount || !state.normalTargetCount) {
+        state.mode = "fault";
+        state.faultType = faultTypes[state.faultIndex];
+        state.faultIndex = (state.faultIndex + 1) % faultTypes.length;
+        state.normalCount = 0;
+        state.faultCount = 0;
+        state.normalTargetCount = Math.floor(Math.random() * 3) + 10; // 10–12
+    }
+
+} else if (state.mode === "fault") {
+    fault = state.faultType;
+
+    switch (fault) {
+        case "stuck-at":
+            if (state.stuckValue === null) {
+                state.stuckValue = parseFloat((Math.random() * (40 - 22) + 22).toFixed(2));
             }
-            temperature = stuckTemperature;
+            temperature = state.stuckValue;
             break;
 
         case "drift":
-            if (driftTemperature === null) {
-                driftTemperature = (Math.random() * (MAX_TEMP - MIN_TEMP) + MIN_TEMP);
-                flow.set("driftTemperature", driftTemperature);
+            if (state.driftValue === null) {
+                state.driftValue = parseFloat((Math.random() * (30 - 25) + 25).toFixed(2));
             }
-            driftTemperature += 1.0;
-            temperature = Math.min(driftTemperature, MAX_TEMP + 50).toFixed(2);
+            temperature = parseFloat((state.driftValue + state.faultCount * 0.3).toFixed(2));
             break;
 
         case "noise":
-            temperature = (parseFloat(generateNormalSensorData().temperature) + (Math.random() * 10 - 5)).toFixed(2);
+            temperature = parseFloat((Math.random() * 20 + 15).toFixed(2));
             break;
 
-        case "out_of_range":
-            temperature = (Math.random() * 10 + 100).toFixed(2);
+        case "out-of-range":
+            temperature = parseFloat((Math.random() < 0.5
+                ? Math.random() * 10 + 0
+                : Math.random() * 30 + 60
+            ).toFixed(2));
             break;
 
         case "intermittent":
-            if (intermittentTemperature === null || step % 5 === 0) {
-                intermittentTemperature = (Math.random() * (MAX_TEMP - MIN_TEMP) + MIN_TEMP).toFixed(2);
-                flow.set("intermittentTemperature", intermittentTemperature);
-            }
-            temperature = intermittentTemperature;
+            temperature = state.faultCount % 2 === 0
+                ? parseFloat((Math.random() * (40 - 22) + 22).toFixed(2))
+                : parseFloat((Math.random() * 20 + 10).toFixed(2));
             break;
 
         case "calibration":
-            temperature = (parseFloat(generateNormalSensorData().temperature) + 10).toFixed(2);
+            temperature = parseFloat(((Math.random() * (40 - 22) + 22) + 5).toFixed(2));
             break;
 
-        case "failure":
-            temperature = (Math.random() > 0.1) ? generateNormalSensorData().temperature : 0;
-            break;
-
-        case "slow_drift":
-            if (driftTemperature === null) {
-                driftTemperature = (Math.random() * (MAX_TEMP - MIN_TEMP) + MIN_TEMP);
-                flow.set("driftTemperature", driftTemperature);
-            }
-            driftTemperature += 0.5;
-            temperature = Math.min(driftTemperature, MAX_TEMP + 50).toFixed(2);
-            break;
-
-        case "spike":
-            temperature = (step === 0) 
-                ? (parseFloat(generateNormalSensorData().temperature) + 30).toFixed(2)
-                : generateNormalSensorData().temperature;
+        case "complete failure":
+            temperature = 0.0;
             break;
     }
-    return {
-        sensor_id: "DHT22-1",
-        temperature: parseFloat(temperature),
-        timestamp: new Date().toISOString(),
-        fault_type: faultType
-    };
-}
 
-// Main logic
-function generateSensorData() {
-    let sensorData;
-    node.warn(`Phase: ${phaseType}, Counter: ${phaseCounter}, Fault Index: ${faultIndex}, Total: ${totalReadings}`);
+    state.faultCount++;
 
-    if (phaseType === "normal") {
-        sensorData = generateNormalSensorData();
-        phaseCounter++;
-        if (phaseCounter >= NORMAL_COUNT) {
-            phaseCounter = 0;
-            phaseType = FAULT_TYPES[faultIndex];
-            node.warn(`Switching to fault: ${phaseType}`);
-        }
-    } else {
-        sensorData = generateFaultData(phaseType, phaseCounter);
-        phaseCounter++;
-        if (phaseCounter >= FAULT_REPEAT_COUNT) {
-            phaseCounter = 0;
-            phaseType = "normal";
-            faultIndex = (faultIndex + 1) % FAULT_TYPES.length;
-            flow.set("stuckTemperature", null);
-            flow.set("driftTemperature", null);
-            flow.set("intermittentTemperature", null);
-            node.warn(`Switching back to normal, next fault index: ${faultIndex}`);
-        }
+    // After 7 fault readings, switch back to normal
+    if (state.faultCount >= 7) {
+        state.mode = "normal";
+        state.faultCount = 0;
+        state.faultType = "";
+        state.stuckValue = null;
+        state.driftValue = null;
+        state.normalTargetCount = Math.floor(Math.random() * 3) + 10;
     }
-
-    // Update context
-    totalReadings++;
-    flow.set("totalReadings", totalReadings);
-    flow.set("phaseCounter", phaseCounter);
-    flow.set("phaseType", phaseType);
-    flow.set("faultIndex", faultIndex);
-
-    // Debug payload explicitly
-    node.warn(`Payload: ${JSON.stringify(sensorData)}`);
-    return { payload: sensorData };
 }
 
-// Execute and send
-msg = generateSensorData();
+flow.set("state", state);
+
+// Output to next node
+msg.payload = {
+    sensor_id: "tempSensor-01",
+    timestamp: new Date().toISOString(),
+    temperature: temperature,
+    fault: fault
+};
+
 return msg;

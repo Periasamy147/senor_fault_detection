@@ -41,6 +41,10 @@
                     <p><strong>Max Probability:</strong> <span id="maxProb">0</span>% (<span id="maxFault">N/A</span>)</p>
                 </div>
             </div>
+            <!-- Add this below your canvases -->
+            <div id="noDataMessage" style="text-align:center; color: red; font-weight: bold; display: none;">
+                No data arrived yet. Waiting for incoming sensor readings...
+            </div>
         </section>
     </div>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
