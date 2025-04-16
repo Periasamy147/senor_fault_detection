@@ -5,7 +5,6 @@ import tensorflow as tf
 from tensorflow.keras.models import load_model
 import joblib
 from flask import Flask, render_template, jsonify
-import time
 from decimal import Decimal
 import tensorflow.keras.backend as K
 import logging
@@ -41,7 +40,7 @@ try:
     scaler = joblib.load('feature_scaler.pkl')
     label_encoder = joblib.load('label_encoder.pkl')
 except FileNotFoundError as e:
-    print(f"Error: {e}. Make sure model and preprocessing files are in the same directory.")
+    logger.error(f"Missing file: {e}")
     exit(1)
 
 fault_types = [
@@ -66,19 +65,13 @@ def fetch_new_data():
                 ExpressionAttributeNames={"#ts": "timestamp"},
                 ExpressionAttributeValues={":t": last_timestamp}
             )
-
-        items = response.get('Items', [])
-        if not items:
-            print("No new data fetched.")
-            return []
-
-        items = sorted(items, key=lambda x: x['timestamp'])
+        items = sorted(response.get('Items', []), key=lambda x: x['timestamp'])
         new_data = []
         for item in items:
             try:
                 timestamp = item['timestamp']
                 temperature = float(item.get('temperature', 0))
-                sensor_id = item.get('sensor_id', 'DHT22-1')
+                sensor_id = item.get('sensor_id', 'tempSensor-01')
                 rate_of_change = temperature - prev_temp if prev_temp is not None else 0
 
                 new_data.append({
@@ -92,15 +85,13 @@ def fetch_new_data():
                 if last_timestamp is None or timestamp > last_timestamp:
                     last_timestamp = timestamp
                 prev_temp = temperature
-            except (KeyError, ValueError) as e:
-                print(f"Error parsing item: {item}, {e}")
+            except Exception as e:
+                logger.warning(f"Skipping item due to error: {e}")
                 continue
 
-        print(f"Fetched {len(new_data)} new items.")
         return new_data
-
     except Exception as e:
-        print(f"Error fetching data: {e}")
+        logger.error(f"Error fetching data: {e}")
         return []
 
 def preprocess_data(buffer):
@@ -113,14 +104,19 @@ def preprocess_data(buffer):
     X_scaled = X_scaled.reshape((1, SEQUENCE_LENGTH, len(FEATURES)))
     return X_scaled
 
-def estimate_corrected_temperature(buffer):
+def estimate_corrected_temperature(buffer, window=5):
+    """Estimate the corrected temperature using recent normal values and slight trend smoothing."""
     normal_temps = [entry['temperature'] for entry in reversed(buffer[:-1]) if entry.get('fault_type', 'normal') == 'normal']
-    if len(normal_temps) >= 2:
-        return round(sum(normal_temps[:2]) / 2, 2)
+    if len(normal_temps) >= 3:
+        avg = np.mean(normal_temps[:window])
+        latest = buffer[-2]['temperature'] if len(buffer) > 1 else avg
+        # Blend with last known reading to add slight trend
+        corrected = round((avg * 0.7 + latest * 0.3), 2)
+        return corrected
     elif normal_temps:
-        return normal_temps[0]
+        return round(normal_temps[0], 2)
     else:
-        return buffer[-1]['temperature']
+        return round(buffer[-1]['temperature'], 2)
 
 @app.route('/')
 def index():
@@ -137,7 +133,7 @@ def get_data():
         if len(data_buffer) > 2 * SEQUENCE_LENGTH:
             data_buffer = data_buffer[-2 * SEQUENCE_LENGTH:]
 
-    latest_data = data_buffer[-1] if data_buffer else {'temperature': 0, 'timestamp': 'N/A', 'sensor_id': 'DHT22-1'}
+    latest_data = data_buffer[-1] if data_buffer else {'temperature': 0, 'timestamp': 'N/A', 'sensor_id': 'tempSensor-01'}
     fault_info = {"fault": "N/A", "probabilities": [0.0] * 10}
 
     if len(data_buffer) >= SEQUENCE_LENGTH:
@@ -145,38 +141,36 @@ def get_data():
         if X_input is not None:
             prediction = model.predict(X_input, verbose=0)
             predicted_label = np.argmax(prediction, axis=1)[0]
-            fault_info["fault"] = fault_types[predicted_label]
+            predicted_fault = fault_types[predicted_label]
+            fault_info["fault"] = predicted_fault
             fault_info["probabilities"] = prediction[0].tolist()
-            print(f"Predicted: {fault_info['fault']}, Probabilities: {fault_info['probabilities']}")
 
-            # Estimate corrected temperature
+            # Impute corrected temperature only if faulty
             corrected_temperature = latest_data['temperature']
-            if fault_types[predicted_label] != 'normal':
+            if predicted_fault != 'normal':
                 corrected_temperature = estimate_corrected_temperature(data_buffer)
-                print(f"Corrected Temperature Imputed: {corrected_temperature}")
+                #logger.info(f"Corrected Temperature Imputed: {corrected_temperature}")
 
-            # Prepare corrected data for DynamoDB
+            # Store to corrected table
             corrected_data = {
-                'sensor_id': latest_data.get('sensor_id', 'DHT22-1'),
+                'sensor_id': latest_data.get('sensor_id', 'tempSensor-01'),
                 'timestamp': latest_data['timestamp'],
                 'temperature': Decimal(str(corrected_temperature)),
-                'fault_type': fault_info["fault"]
+                'fault_type': predicted_fault
             }
 
             try:
-                print(f"Writing to CorrectedTemperatureReadings: {corrected_data}")
                 corrected_table.put_item(Item=corrected_data)
-                print("Corrected data stored successfully.")
+                #logger.info(f"Stored corrected data: {corrected_data}")
             except Exception as e:
-                print(f"Error writing corrected data: {e}")
+                logger.error(f"Failed to write corrected data: {e}")
 
-    response = {
+    return jsonify({
         'temperature': latest_data['temperature'],
         'timestamp': latest_data['timestamp'],
         'fault': fault_info["fault"],
         'probabilities': fault_info["probabilities"]
-    }
-    return jsonify(response)
+    })
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
