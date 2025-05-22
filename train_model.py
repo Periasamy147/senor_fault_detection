@@ -102,11 +102,72 @@ history = model.fit(
     shuffle=True
 )
 
-# Save model and history
+# Save model in both .keras and .h5 formats
 model.save("bilstm_fault_detection.keras")
+model.save("bilstm_fault_detection.h5")
 np.save("training_history.npy", history.history)
-print("\n✅ Model training complete! Saved as bilstm_fault_detection.keras")
+print("\n✅ Model training complete! Saved as bilstm_fault_detection.keras and bilstm_fault_detection.h5")
 print(f"📊 Final Training Accuracy: {history.history['accuracy'][-1]:.5f}")
 print(f"📊 Final Validation Accuracy: {history.history['val_accuracy'][-1]:.5f}")
 print(f"📉 Final Training Loss: {history.history['loss'][-1]:.5f}")
 print(f"📉 Final Validation Loss: {history.history['val_loss'][-1]:.5f}")
+
+# Generate Training Curves Image
+import matplotlib.pyplot as plt
+
+# Load history if not already in memory (for standalone use)
+history = np.load("training_history.npy", allow_pickle=True).item()
+
+plt.figure(figsize=(12, 8))
+
+# Plot Accuracy
+plt.subplot(2, 2, 1)
+plt.plot(history['accuracy'], label='Training Accuracy')
+plt.plot(history['val_accuracy'], label='Validation Accuracy')
+plt.title('Model Accuracy')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.grid(True)
+
+# Plot Loss
+plt.subplot(2, 2, 2)
+plt.plot(history['loss'], label='Training Loss')
+plt.plot(history['val_loss'], label='Validation Loss')
+plt.title('Model Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend()
+plt.grid(True)
+
+# Plot Precision
+plt.subplot(2, 2, 3)
+plt.plot(history['precision'], label='Training Precision')
+plt.plot(history['val_precision'], label='Validation Precision')
+plt.title('Model Precision')
+plt.xlabel('Epoch')
+plt.ylabel('Precision')
+plt.legend()
+plt.grid(True)
+
+# Plot Recall
+plt.subplot(2, 2, 4)
+plt.plot(history['recall'], label='Training Recall')
+plt.plot(history['val_recall'], label='Validation Recall')
+plt.title('Model Recall')
+plt.xlabel('Epoch')
+plt.ylabel('Recall')
+plt.legend()
+plt.grid(True)
+
+plt.tight_layout()
+plt.savefig('training_curves.png', dpi=300, bbox_inches='tight')
+plt.close()
+
+print("✅ Training curves image saved as 'training_curves.png'")
+
+# Generate Model Architecture Image
+from tensorflow.keras.utils import plot_model
+
+plot_model(model, to_file='model_architecture.png', show_shapes=True, show_layer_names=True, dpi=300)
+print("✅ Model architecture image saved as 'model_architecture.png'")
